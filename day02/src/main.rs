@@ -1,40 +1,47 @@
 pub fn parse_input(input: &str) -> Vec<Vec<i64>> {
-    input.lines().map(|l| {
-        l.split_ascii_whitespace().map(|n| {
-            n.parse().unwrap()
-        }).collect()
-    }).collect()
+    input
+        .lines()
+        .map(|l| {
+            l.split_ascii_whitespace()
+                .map(|n| n.parse().unwrap())
+                .collect()
+        })
+        .collect()
 }
 
 pub fn is_valid(report: &[i64]) -> bool {
-    report.windows(2).map(|w| w[1] - w[0]).all(|d| d == 1 || d == 2 || d == 3)
-    || report.windows(2).map(|w| w[1] - w[0]).all(|d| d == -1 || d == -2 || d == -3)
+    report
+        .windows(2)
+        .map(|w| w[1] - w[0])
+        .all(|d| d == 1 || d == 2 || d == 3)
+        || report
+            .windows(2)
+            .map(|w| w[1] - w[0])
+            .all(|d| d == -1 || d == -2 || d == -3)
 }
 
 pub fn is_valid_with_tolerance(report: &[i64]) -> bool {
-    (0 .. report.len())
-        .any(|n| {
-            let mut modified_list = report.to_vec();
-            modified_list.remove(n);
-            is_valid(&modified_list)
-        })
+    (0..report.len()).any(|n| {
+        let mut modified_list = report.to_vec();
+        modified_list.remove(n);
+        is_valid(&modified_list)
+    })
 }
 
 pub fn part_1(reports: &[Vec<i64>]) -> usize {
-    let valid_reports = reports.iter()
-    .filter(|r| is_valid(r)).collect::<Vec<_>>();
-    valid_reports.len()
+    reports.iter().filter(|r| is_valid(r)).count()
 }
 
 pub fn part_2(reports: &[Vec<i64>]) -> usize {
-    let valid_reports = reports.iter()
-    .filter(|r| is_valid_with_tolerance(r)).collect::<Vec<_>>();
-    valid_reports.len()
+    reports
+        .iter()
+        .filter(|r| is_valid_with_tolerance(r))
+        .count()
 }
 
 fn main() {
     let input = parse_input(include_str!("../input.txt"));
-    println!("Part 1: {}", part_1(&input)); 
+    println!("Part 1: {}", part_1(&input));
     println!("Part 2: {}", part_2(&input));
 }
 

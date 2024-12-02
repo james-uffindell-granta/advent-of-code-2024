@@ -18,7 +18,10 @@ fn parse_input(input: &str) -> (Vec<i32>, Vec<i32>) {
 }
 
 fn part_1((left, right): &(Vec<i32>, Vec<i32>)) -> u32 {
-    left.iter().zip(right.iter()).map(|(l, r)| l.abs_diff(*r)).sum()
+    left.iter()
+        .zip(right.iter())
+        .map(|(l, r)| l.abs_diff(*r))
+        .sum()
 }
 
 fn part_2((left, right): &(Vec<i32>, Vec<i32>)) -> i32 {
@@ -27,13 +30,14 @@ fn part_2((left, right): &(Vec<i32>, Vec<i32>)) -> i32 {
         *rhs_counts.entry(r).or_insert(0) += 1;
     }
 
-    left.iter().map(|num| num * rhs_counts.get(num).unwrap_or(&0)).sum()
+    left.iter()
+        .map(|num| num * rhs_counts.get(num).unwrap_or(&0))
+        .sum()
 }
-
 
 fn main() {
     let input = parse_input(include_str!("../input.txt"));
-    println!("Part 1: {}", part_1(&input)); 
+    println!("Part 1: {}", part_1(&input));
     println!("Part 2: {}", part_2(&input));
 }
 
