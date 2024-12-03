@@ -1,7 +1,7 @@
 use winnow::ascii::digit1;
-use winnow::combinator::{delimited, repeat, separated_pair};
+use winnow::combinator::{delimited, repeat, separated_pair, opt};
 use winnow::error::InputError;
-use winnow::token::{take, literal};
+use winnow::token::take;
 use winnow::{PResult, Parser};
 
 #[derive(Copy, Clone, Debug)]
@@ -23,7 +23,7 @@ pub fn parse_mul(input: &mut &str) -> PResult<Multiplication> {
 pub fn parse_muls(input: &mut &str) -> PResult<Vec<Multiplication>> {
     let mut results = Vec::new();
     while !input.is_empty() {
-        if let Ok(mul) = parse_mul(input) {
+        if let Some(mul) = opt(parse_mul).parse_next(input)? {
             results.push(mul);
         } else {
             _ = take::<_, _, InputError<_>>(1usize).parse_next(input).unwrap();
@@ -33,21 +33,17 @@ pub fn parse_muls(input: &mut &str) -> PResult<Vec<Multiplication>> {
     Ok(results)
 }
 
-pub fn parse_do<'a>(input: &mut &'a str) -> PResult<&'a str> {
-    "do()".parse_next(input)
-}
-
 pub fn parse_muls_part_2(input: &mut &str) -> PResult<Vec<Multiplication>> {
     let mut results = Vec::new();
     let mut include = true;
     while !input.is_empty() {
-        if let Ok(mul) = parse_mul(input) {
+        if let Some(mul) = opt(parse_mul).parse_next(input)? {
             if include {
                 results.push(mul);
             }
-        } else if literal::<_, _, InputError<_>>("do()").parse_next(input).is_ok() {
+        } else if opt("do()").parse_next(input)?.is_some() {
             include = true;
-        } else if literal::<_, _, InputError<_>>("don't()").parse_next(input).is_ok() {
+        } else if opt("don't()").parse_next(input)?.is_some() {
             include = false;
         } else {
             _ = take::<_, _, InputError<_>>(1usize).parse_next(input).unwrap();
