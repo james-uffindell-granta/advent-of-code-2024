@@ -1,87 +1,86 @@
 use winnow::ascii::digit1;
-use winnow::combinator::{delimited, repeat, separated_pair, opt};
-use winnow::error::InputError;
+use winnow::combinator::{alt, delimited, repeat, separated_pair};
 use winnow::token::take;
 use winnow::{PResult, Parser};
 
 #[derive(Copy, Clone, Debug)]
-pub struct Multiplication {
-    left: i64,
-    right: i64
+pub enum ItemOfInterest {
+    Multiplication(i64, i64),
+    Do,
+    Dont,
 }
 
 pub fn parse_num(input: &mut &str) -> PResult<i64> {
-    let digits: Vec<&str> = repeat(1..=3, digit1).parse_next(input)?;
-    Ok(digits.concat().parse().unwrap())
+    repeat(1..=3, digit1)
+        .map(|d: Vec<&str>| d.concat().parse().unwrap())
+        .parse_next(input)
 }
 
-pub fn parse_mul(input: &mut &str) -> PResult<Multiplication> {
-    let (left, right) = delimited("mul(", separated_pair(parse_num, ",", parse_num), ")").parse_next(input)?;
-    Ok(Multiplication{ left, right })
+pub fn parse_items(input: &mut &str) -> PResult<Vec<Option<ItemOfInterest>>> {
+    repeat(
+        1..,
+        alt((
+            delimited("mul(", separated_pair(parse_num, ",", parse_num), ")")
+                .map(|(left, right)| Some(ItemOfInterest::Multiplication(left, right))),
+            "do()".map(|_| Some(ItemOfInterest::Do)),
+            "don't()".map(|_| Some(ItemOfInterest::Dont)),
+            take(1usize).map(|_| None),
+        )),
+    )
+    .parse_next(input)
 }
 
-pub fn parse_muls(input: &mut &str) -> PResult<Vec<Multiplication>> {
-    let mut results = Vec::new();
-    while !input.is_empty() {
-        if let Some(mul) = opt(parse_mul).parse_next(input)? {
-            results.push(mul);
-        } else {
-            _ = take::<_, _, InputError<_>>(1usize).parse_next(input).unwrap();
-        }
-    }
-
-    Ok(results)
+pub fn parse_input_full(input: &str) -> Vec<ItemOfInterest> {
+    parse_items
+        .parse(input.trim())
+        .unwrap()
+        .into_iter()
+        .flatten()
+        .collect()
 }
 
-pub fn parse_muls_part_2(input: &mut &str) -> PResult<Vec<Multiplication>> {
-    let mut results = Vec::new();
-    let mut include = true;
-    while !input.is_empty() {
-        if let Some(mul) = opt(parse_mul).parse_next(input)? {
-            if include {
-                results.push(mul);
+pub fn part_1(input: &[ItemOfInterest]) -> i64 {
+    input
+        .iter()
+        .filter_map(|i| {
+            if let ItemOfInterest::Multiplication(left, right) = i {
+                Some(left * right)
+            } else {
+                None
             }
-        } else if opt("do()").parse_next(input)?.is_some() {
-            include = true;
-        } else if opt("don't()").parse_next(input)?.is_some() {
-            include = false;
-        } else {
-            _ = take::<_, _, InputError<_>>(1usize).parse_next(input).unwrap();
+        })
+        .sum()
+}
+
+pub fn part_2(input: &[ItemOfInterest]) -> i64 {
+    let mut include = true;
+    let mut result = 0;
+    for i in input {
+        match i {
+            ItemOfInterest::Multiplication(left, right) if include => result += left * right,
+            ItemOfInterest::Multiplication(_, _) => {}
+            ItemOfInterest::Do => include = true,
+            ItemOfInterest::Dont => include = false,
         }
     }
 
-    Ok(results)
-}
-
-pub fn parse_input(input: &str) -> Vec<Multiplication> {
-    parse_muls.parse(input.trim()).unwrap()
-}
-
-pub fn parse_input_part_2(input: &str) -> Vec<Multiplication> {
-    parse_muls_part_2.parse(input.trim()).unwrap()
-}
-
-pub fn calculate(muls: &[Multiplication]) -> i64 {
-    muls.iter().map(|m| m.left * m.right).sum()
+    result
 }
 
 fn main() {
     let file = include_str!("../input.txt");
-    let input = parse_input(file);
-    println!("Part 1: {}", calculate(&input));
-    let input_2 = parse_input_part_2(file);
-    println!("Part 2: {}", calculate(&input_2));
+    let input = parse_input_full(file);
+    println!("Part 1: {}", part_1(&input));
+    println!("Part 2: {}", part_2(&input));
 }
 
 #[test]
 pub fn test() {
     let input = r#"xmul(2,4)%&mul[3,7]!@^do_not_mul(5,5)+mul(32,64]then(mul(11,8)mul(8,5))"#;
-    let muls = parse_input(input.trim());
-    println!("{:?}", muls);
-    assert_eq!(calculate(&muls), 161);
+    let muls = parse_input_full(input.trim());
+    assert_eq!(part_1(&muls), 161);
 
     let input_2 = r#"xmul(2,4)&mul[3,7]!^don't()_mul(5,5)+mul(32,64](mul(11,8)undo()?mul(8,5))"#;
-    let muls = parse_input_part_2(input_2.trim());
-    println!("{:?}", muls);
-    assert_eq!(calculate(&muls), 48);
+    let muls = parse_input_full(input_2.trim());
+    assert_eq!(part_2(&muls), 48);
 }
