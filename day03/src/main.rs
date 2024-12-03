@@ -1,6 +1,6 @@
-use winnow::ascii::digit1;
 use winnow::combinator::{alt, delimited, repeat, separated_pair};
-use winnow::token::take;
+use winnow::stream::AsChar;
+use winnow::token::{take, take_while};
 use winnow::{PResult, Parser};
 
 #[derive(Copy, Clone, Debug)]
@@ -11,8 +11,8 @@ pub enum ItemOfInterest {
 }
 
 pub fn parse_num(input: &mut &str) -> PResult<i64> {
-    repeat(1..=3, digit1)
-        .map(|d: Vec<&str>| d.concat().parse().unwrap())
+    take_while(1..=3, AsChar::is_dec_digit)
+        .parse_to()
         .parse_next(input)
 }
 
@@ -30,7 +30,7 @@ pub fn parse_items(input: &mut &str) -> PResult<Vec<Option<ItemOfInterest>>> {
     .parse_next(input)
 }
 
-pub fn parse_input_full(input: &str) -> Vec<ItemOfInterest> {
+pub fn parse_input(input: &str) -> Vec<ItemOfInterest> {
     parse_items
         .parse(input.trim())
         .unwrap()
@@ -69,7 +69,7 @@ pub fn part_2(input: &[ItemOfInterest]) -> i64 {
 
 fn main() {
     let file = include_str!("../input.txt");
-    let input = parse_input_full(file);
+    let input = parse_input(file);
     println!("Part 1: {}", part_1(&input));
     println!("Part 2: {}", part_2(&input));
 }
@@ -77,10 +77,10 @@ fn main() {
 #[test]
 pub fn test() {
     let input = r#"xmul(2,4)%&mul[3,7]!@^do_not_mul(5,5)+mul(32,64]then(mul(11,8)mul(8,5))"#;
-    let muls = parse_input_full(input.trim());
+    let muls = parse_input(input.trim());
     assert_eq!(part_1(&muls), 161);
 
     let input_2 = r#"xmul(2,4)&mul[3,7]!^don't()_mul(5,5)+mul(32,64](mul(11,8)undo()?mul(8,5))"#;
-    let muls = parse_input_full(input_2.trim());
+    let muls = parse_input(input_2.trim());
     assert_eq!(part_2(&muls), 48);
 }
