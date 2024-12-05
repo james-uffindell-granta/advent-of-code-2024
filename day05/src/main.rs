@@ -1,4 +1,7 @@
-use std::{cmp::Ordering, collections::{HashMap, HashSet}};
+use std::{
+    cmp::Ordering,
+    collections::{HashMap, HashSet},
+};
 
 pub struct Input {
     rules: HashMap<i64, HashSet<i64>>,
@@ -15,46 +18,46 @@ pub fn compare_using(rules: &HashMap<i64, HashSet<i64>>, a: i64, b: i64) -> Orde
             Some(b_rules) if b_rules.contains(&a) => Ordering::Greater,
             // otherwise there's no rule relating a to b (would need to toposort to infer relationship)
             _ => unreachable!(),
-        }
+        },
     }
 }
 
 pub fn part_1(input: &Input) -> i64 {
-    let mut answer = 0;
-
-    for update in &input.updates {
-        if update.is_sorted_by(|a, b| compare_using(&input.rules, *a, *b).is_le()) {
-            answer += update[update.len() / 2];
-        }
-    }
-
-    answer
+    input
+        .updates
+        .iter()
+        .filter(|u| u.is_sorted_by(|a, b| compare_using(&input.rules, *a, *b).is_le()))
+        .map(|u| u[u.len() / 2])
+        .sum()
 }
 
 pub fn part_2(input: &Input) -> i64 {
-    let mut answer = 0;
-
-    for update in &input.updates {
-        let mut copy = update.clone();
-        copy.sort_by(|a, b| compare_using(&input.rules, *a, *b));
-
-        if update != &copy {
-            answer += copy[copy.len() / 2];
-        }
-    }
-
-    answer
+    input
+        .updates
+        .iter()
+        .filter_map(|u| {
+            let mut copy = u.clone();
+            copy.sort_by(|a, b| compare_using(&input.rules, *a, *b));
+            (u != &copy).then_some(copy[copy.len() / 2])
+        })
+        .sum()
 }
 
-pub fn parse_input(input: &str) ->  Input {
+pub fn parse_input(input: &str) -> Input {
     let (rules_part, updates_part) = input.split_once("\n\n").unwrap();
-    let mut rules : HashMap<i64, HashSet<i64>> = HashMap::new();
+    let mut rules: HashMap<i64, HashSet<i64>> = HashMap::new();
     for rule in rules_part.lines() {
         let (first, second) = rule.split_once("|").unwrap();
-        rules.entry(first.parse().unwrap()).or_default().insert(second.parse().unwrap());
+        rules
+            .entry(first.parse().unwrap())
+            .or_default()
+            .insert(second.parse().unwrap());
     }
 
-    let updates = updates_part.lines().map(|line| line.split(",").map(|num| num.parse().unwrap()).collect()).collect();
+    let updates = updates_part
+        .lines()
+        .map(|line| line.split(",").map(|num| num.parse().unwrap()).collect())
+        .collect();
 
     Input { rules, updates }
 }
