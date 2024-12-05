@@ -25,6 +25,7 @@ impl Add<(i64, i64)> for Coord {
 }
 
 impl Coord {
+    // for 'starting with X'; get the next 3 in all 8 directions
     pub fn rays_from(self) -> Vec<[Coord; 3]> {
         vec![
             [self + (0, 1), self + (0, 2), self + (0, 3)],
@@ -38,12 +39,34 @@ impl Coord {
         ]
     }
 
-    pub fn star_from(self) -> Vec<[Coord; 4]> {
+    // for 'A in the middle'; get the four ways the surrounding corner cells
+    // can be arranged with the first two on the same side
+    pub fn corners_around(self) -> Vec<[Coord; 4]> {
         vec![
-            [self + (-1, -1), self + (-1, 1), self + (1, -1), self + (1, 1)],
-            [self + (1, -1), self + (1, 1), self + (-1, -1), self + (-1, 1)],
-            [self + (-1, -1), self + (1, -1), self + (-1, 1), self + (1, 1)],
-            [self + (1, 1), self + (-1, 1), self + (1, -1), self + (-1, -1)],
+            [
+                self + (-1, -1),
+                self + (-1, 1),
+                self + (1, -1),
+                self + (1, 1),
+            ],
+            [
+                self + (1, -1),
+                self + (1, 1),
+                self + (-1, -1),
+                self + (-1, 1),
+            ],
+            [
+                self + (-1, -1),
+                self + (1, -1),
+                self + (-1, 1),
+                self + (1, 1),
+            ],
+            [
+                self + (1, 1),
+                self + (-1, 1),
+                self + (1, -1),
+                self + (-1, -1),
+            ],
         ]
     }
 }
@@ -95,12 +118,12 @@ pub fn part_2(input: &Input) -> usize {
             continue;
         }
 
-        for ray in coord.star_from() {
+        for corners in coord.corners_around() {
             if let (Some('M'), Some('M'), Some('S'), Some('S')) = (
-                input.grid.get(&ray[0]),
-                input.grid.get(&ray[1]),
-                input.grid.get(&ray[2]),
-                input.grid.get(&ray[3])
+                input.grid.get(&corners[0]),
+                input.grid.get(&corners[1]),
+                input.grid.get(&corners[2]),
+                input.grid.get(&corners[3]),
             ) {
                 count += 1
             }
