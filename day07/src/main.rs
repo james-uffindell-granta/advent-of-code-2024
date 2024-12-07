@@ -1,9 +1,9 @@
-use std::{collections::HashSet, str::FromStr};
+use std::collections::HashSet;
 
 #[derive(Clone, Debug)]
 pub struct Calibration {
-    target: i64,
-    values: Vec<i64>,
+    target: u64,
+    values: Vec<u64>,
 }
 
 impl Calibration {
@@ -22,6 +22,7 @@ impl Calibration {
             results = results
                 .iter()
                 .flat_map(|r| [r + arg, r * arg, format!("{}{}", r, arg).parse().unwrap()])
+                .filter(|r| *r <= self.target)
                 .collect()
         }
 
@@ -45,7 +46,7 @@ pub fn parse_input(input: &str) -> Vec<Calibration> {
         .collect()
 }
 
-pub fn part_1(input: &[Calibration]) -> i64 {
+pub fn part_1(input: &[Calibration]) -> u64 {
     input
         .iter()
         .filter(|c| c.is_valid())
@@ -53,7 +54,7 @@ pub fn part_1(input: &[Calibration]) -> i64 {
         .sum()
 }
 
-pub fn part_2(input: &[Calibration]) -> i64 {
+pub fn part_2(input: &[Calibration]) -> u64 {
     input
         .iter()
         .filter(|c| c.is_valid_with_concat())
