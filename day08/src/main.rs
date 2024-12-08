@@ -87,10 +87,10 @@ pub fn part_1(input: &Input) -> usize {
     input
         .antenna_locations
         .values()
-        .flat_map(|antennas| antennas.iter().combinations(2))
-        .flat_map(|pair| {
-            let distance = *pair[1] - *pair[0];
-            [*pair[0] - distance, *pair[1] + distance]
+        .flat_map(|antennas| antennas.iter().tuple_combinations())
+        .flat_map(|(&first, &second)| {
+            let distance = second - first;
+            [first - distance, second + distance]
         })
         .filter(|node| input.contains(*node))
         .collect::<HashSet<_>>()
@@ -101,19 +101,18 @@ pub fn part_2(input: &Input) -> usize {
     input
         .antenna_locations
         .values()
-        .flat_map(|antennas| antennas.iter().combinations(2))
-        .flat_map(|pair| {
-            let (first, second) = (*pair[0], *pair[1]);
-            let (dx, dy) = *pair[1] - *pair[0];
+        .flat_map(|antennas| antennas.iter().tuple_combinations())
+        .flat_map(|(&first, &second)| {
+            let (dx, dy) = second - first;
             let gcd = dx.unsigned_abs().gcd(dy.unsigned_abs()) as i64;
-            let distance = (dx / gcd, dy / gcd);
+            let (dx, dy) = (dx / gcd, dy / gcd);
 
             (0..)
-                .map(move |n| first - (n * distance.0, n * distance.1))
+                .map(move |n| first - (n * dx, n * dy))
                 .take_while(|c| input.contains(*c))
                 .chain(
                     (0..)
-                        .map(move |n| second + (n * distance.0, n * distance.1))
+                        .map(move |n| second + (n * dx, n * dy))
                         .take_while(|c| input.contains(*c)),
                 )
         })
