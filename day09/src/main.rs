@@ -30,8 +30,6 @@ pub fn parse_input(input: &str) -> Vec<DiskEntry> {
         }
     }
 
-    println!("{}", disk.len());
-
     disk
 }
 
