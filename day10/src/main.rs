@@ -13,7 +13,8 @@ impl From<(i64, i64)> for Coord {
 }
 
 impl Coord {
-    pub fn neighbours(Coord { x, y }: Self) -> [Coord; 4] {
+    pub fn neighbours(self) -> [Coord; 4] {
+        let Coord { x, y} = self;
         [
             (x + 1, y).into(),
             (x - 1, y).into(),
@@ -28,60 +29,38 @@ pub struct Input {
 }
 
 impl Input {
-    pub fn to_trailheads(&self) -> HashMap<Coord, HashSet<Coord>> {
-        let mut trailheads = HashMap::new();
-        for coord in self.heights.iter().filter_map(|(c, h)| (*h == 9).then_some(*c)) {
-            trailheads.insert(coord, HashSet::from([coord]));
-        }
-
-        for height in (0..=8).rev() {
-            for coord in self.heights.iter().filter_map(|(c, h)| (*h == height).then_some(*c)) {
-                let mut reachable = HashSet::new();
-                for neighbour in Coord::neighbours(coord) {
-                    if let Some(h) = self.heights.get(&neighbour) {
-                        if *h == height + 1 {
-                            if let Some(r) = trailheads.get(&neighbour) {
-                                reachable.extend(r);
-                            }
-                        }
-                    }
-                }
-
-                trailheads.insert(coord, reachable);
-            }
-        }
-
-        trailheads
-    }
-
     pub fn to_trails(&self) -> HashMap<Coord, HashSet<Vec<Coord>>> {
-        let mut result = HashMap::new();
+        let mut trails = HashMap::new();
+        // trails from a 9 upwards are just single points
         for coord in self.heights.iter().filter_map(|(c, h)| (*h == 9).then_some(*c)) {
-            result.insert(coord, HashSet::from([vec![coord]]));
+            trails.insert(coord, HashSet::from([vec![coord]]));
         }
 
         for height in (0..=8).rev() {
             for coord in self.heights.iter().filter_map(|(c, h)| (*h == height).then_some(*c)) {
-                let mut trails = HashSet::new();
-                for neighbour in Coord::neighbours(coord) {
-                    if let Some(h) = self.heights.get(&neighbour) {
-                        if *h == height + 1 {
-                            if let Some(t) = result.get(&neighbour) {
-                                for trail in t {
-                                    let mut longer_trail = trail.clone();
-                                    longer_trail.push(coord);
-                                    trails.insert(longer_trail);
-                                }
-                            }
+                let mut new_trails = HashSet::new();
+
+                // get the neighbors that are one away upwards
+                let relevant_neighbours = coord.neighbours().into_iter().filter(|c| {
+                    self.heights.get(c).filter(|h| **h == height + 1).is_some()
+                });
+
+                // then, for all trails that start from neighbours one above, the trails from this point are all of those with this point added
+                for neighbour in relevant_neighbours {
+                    if let Some(trails_from_neighbour) = trails.get(&neighbour) {
+                        for trail in trails_from_neighbour {
+                            let mut longer_trail = trail.clone();
+                            longer_trail.push(coord);
+                            new_trails.insert(longer_trail);
                         }
                     }
                 }
 
-                result.insert(coord, trails);
+                trails.insert(coord, new_trails);
             }
         }
 
-        result
+        trails
     }
 }
 
@@ -97,8 +76,9 @@ pub fn parse_input(input: &str) -> Input {
 
 pub fn part_1(input: &Input) -> usize {
     let starts = input.heights.iter().filter_map(|(c, h)| (*h ==  0).then_some(*c)).collect::<HashSet<_>>();
-    let trailheads = input.to_trailheads();
-    trailheads.iter().filter_map(|(c, set)| starts.contains(c).then_some(set.len())).sum()
+    let trails = input.to_trails();
+    // we just care about the distinct ends of the trails (which are the 'starts' in our representation)
+    trails.iter().filter_map(|(c, set)| starts.contains(c).then_some(set.iter().map(|v| v[0]).collect::<HashSet<_>>().len())).sum()
 }
 
 pub fn part_2(input: &Input) -> usize {
@@ -126,7 +106,6 @@ pub fn test() {
 10456732
 ";
     let input = parse_input(input);
-
 
     assert_eq!(part_1(&input), 36);
     assert_eq!(part_2(&input), 81);
