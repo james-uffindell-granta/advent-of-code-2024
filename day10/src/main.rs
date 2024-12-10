@@ -14,7 +14,7 @@ impl From<(i64, i64)> for Coord {
 
 impl Coord {
     pub fn neighbours(self) -> [Coord; 4] {
-        let Coord { x, y} = self;
+        let Coord { x, y } = self;
         [
             (x + 1, y).into(),
             (x - 1, y).into(),
@@ -32,18 +32,27 @@ impl Input {
     pub fn to_trails(&self) -> HashMap<Coord, HashSet<Vec<Coord>>> {
         let mut trails = HashMap::new();
         // trails from a 9 upwards are just single points
-        for coord in self.heights.iter().filter_map(|(c, h)| (*h == 9).then_some(*c)) {
+        for coord in self
+            .heights
+            .iter()
+            .filter_map(|(c, h)| (*h == 9).then_some(*c))
+        {
             trails.insert(coord, HashSet::from([vec![coord]]));
         }
 
         for height in (0..=8).rev() {
-            for coord in self.heights.iter().filter_map(|(c, h)| (*h == height).then_some(*c)) {
+            for coord in self
+                .heights
+                .iter()
+                .filter_map(|(c, h)| (*h == height).then_some(*c))
+            {
                 let mut new_trails = HashSet::new();
 
                 // get the neighbors that are one away upwards
-                let relevant_neighbours = coord.neighbours().into_iter().filter(|c| {
-                    self.heights.get(c).filter(|h| **h == height + 1).is_some()
-                });
+                let relevant_neighbours = coord
+                    .neighbours()
+                    .into_iter()
+                    .filter(|c| self.heights.get(c).filter(|h| **h == height + 1).is_some());
 
                 // then, for all trails that start from neighbours one above, the trails from this point are all of those with this point added
                 for neighbour in relevant_neighbours {
@@ -66,25 +75,47 @@ impl Input {
 
 pub fn parse_input(input: &str) -> Input {
     Input {
-        heights: input.lines().enumerate().flat_map(|(y, line)| {
-            line.chars().enumerate().map(move |(x, c)| {
-                ((x as i64, y as i64).into(), c.to_digit(10).unwrap())
+        heights: input
+            .lines()
+            .enumerate()
+            .flat_map(|(y, line)| {
+                line.chars()
+                    .enumerate()
+                    .map(move |(x, c)| ((x as i64, y as i64).into(), c.to_digit(10).unwrap()))
             })
-        }).collect()
+            .collect(),
     }
 }
 
 pub fn part_1(input: &Input) -> usize {
-    let starts = input.heights.iter().filter_map(|(c, h)| (*h ==  0).then_some(*c)).collect::<HashSet<_>>();
+    let starts = input
+        .heights
+        .iter()
+        .filter_map(|(c, h)| (*h == 0).then_some(*c))
+        .collect::<HashSet<_>>();
     let trails = input.to_trails();
     // we just care about the distinct ends of the trails (which are the 'starts' in our representation)
-    trails.iter().filter_map(|(c, set)| starts.contains(c).then_some(set.iter().map(|v| v[0]).collect::<HashSet<_>>().len())).sum()
+    trails
+        .iter()
+        .filter_map(|(c, set)| {
+            starts
+                .contains(c)
+                .then_some(set.iter().map(|v| v[0]).collect::<HashSet<_>>().len())
+        })
+        .sum()
 }
 
 pub fn part_2(input: &Input) -> usize {
-    let starts = input.heights.iter().filter_map(|(c, h)| (*h ==  0).then_some(*c)).collect::<HashSet<_>>();
+    let starts = input
+        .heights
+        .iter()
+        .filter_map(|(c, h)| (*h == 0).then_some(*c))
+        .collect::<HashSet<_>>();
     let trailheads = input.to_trails();
-    trailheads.iter().filter_map(|(c, set)| starts.contains(c).then_some(set.len())).sum()
+    trailheads
+        .iter()
+        .filter_map(|(c, set)| starts.contains(c).then_some(set.len()))
+        .sum()
 }
 
 fn main() {
