@@ -93,9 +93,8 @@ pub fn part_1(input: &Input) -> usize {
         .iter()
         .filter_map(|(c, h)| (*h == 0).then_some(*c))
         .collect::<HashSet<_>>();
-    let trails = input.to_trails();
     // we just care about the distinct ends of the trails (which are the 'starts' in our representation)
-    trails
+    input.to_trails()
         .iter()
         .filter_map(|(c, set)| {
             starts
@@ -111,8 +110,7 @@ pub fn part_2(input: &Input) -> usize {
         .iter()
         .filter_map(|(c, h)| (*h == 0).then_some(*c))
         .collect::<HashSet<_>>();
-    let trailheads = input.to_trails();
-    trailheads
+    input.to_trails()
         .iter()
         .filter_map(|(c, set)| starts.contains(c).then_some(set.len()))
         .sum()
