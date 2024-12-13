@@ -76,7 +76,7 @@ impl ClawMachine {
         Some((a_presses, b_presses, offset))
     }
 
-    pub fn win(&self) -> Option<i64> {
+    pub fn win(&self, limit: Option<i64>) -> Option<i64> {
         // get the solution for x (if there is one)
         // solutions are (a_presses - k*offsets.0) presses of a and (b_presses + k*offsets.1) presses of b
         let (mut a_presses, mut b_presses, offsets) = self.get_x_solutions()?;
@@ -93,6 +93,12 @@ impl ClawMachine {
         if a_presses * self.button_a.0 + b_presses * self.button_b.0 != self.prize.0 {
             // should be impossible - all values of k work for x - but just to be safe
             unreachable!();
+        }
+
+        if let Some(limit) = limit {
+            if a_presses > limit || b_presses > limit {
+                return None;
+            }
         }
 
         if a_presses * self.button_a.1 + b_presses * self.button_b.1 == self.prize.1 {
@@ -125,11 +131,11 @@ pub fn parse_input(input: &str) -> Vec<ClawMachine> {
 }
 
 pub fn part_1(input: &[ClawMachine]) -> i64 {
-    input.iter().filter_map(|m| m.win()).sum()
+    input.iter().filter_map(|m| m.win(Some(100))).sum()
 }
 
 pub fn part_2(input: &[ClawMachine]) -> i64 {
-    input.iter().map(|m| m.adjust()).filter_map(|m| m.win()).sum()
+    input.iter().map(|m| m.adjust()).filter_map(|m| m.win(None)).sum()
 }
 
 fn main() {
