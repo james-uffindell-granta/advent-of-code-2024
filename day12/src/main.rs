@@ -60,23 +60,24 @@ impl Region {
         let mut sides = 0;
 
         for direction in [(0, 1), (0, -1), (1, 0), (-1, 0)] {
-            // get all the cells in the region where the neighbour (in this direction) is not in the region
+            // get all the cells in the region where the neighbour (in this direction)
+            // is not in the region (the 'surface cells' in that direction)
             let upper_sides = self
                 .plots
                 .iter()
                 .copied()
                 .filter(|c| !self.plots.contains(&(*c + direction)))
                 .collect::<HashSet<_>>();
-            // pretend those make a garden and split it into regions - contiguous cells in the opposite axis will form a single side and a single region
+            // pretend those make a garden and split it into regions -
+            // contiguous cells following the opposite axis will form a single side and a single region
             let temp_garden = Garden {
                 plots: upper_sides
                     .into_iter()
                     .map(|p| (p, 'X'))
                     .collect::<HashMap<_, _>>(),
             };
-            let regions = temp_garden.to_regions();
             // so the number of sides in that direction is just the number of these regions
-            sides += regions.len()
+            sides += temp_garden.to_regions().len()
         }
 
         sides
@@ -101,12 +102,10 @@ impl Garden {
 
     fn remove_region(&mut self) -> Region {
         let (&coord, &plant) = self.plots.iter().next().unwrap();
-        // println!("Going to extract a region for {} at {:?}", plant, coord);
         let mut region = HashSet::new();
         let mut coords_still_to_consider = HashSet::from([coord]);
 
         while let Some(&coord) = coords_still_to_consider.iter().next() {
-            // println!("Checking {:?}", coord);
             let neighbours = coord.neighbours();
             // if the coord has neighbours in the garden with the same plant, they
             // are part of the region - but no point considering them again if
@@ -128,7 +127,6 @@ impl Garden {
             coords_still_to_consider.remove(&coord);
         }
 
-        // println!("Extracted region");
         // remove the region from the garden
         for coord in &region {
             self.plots.remove(coord);
