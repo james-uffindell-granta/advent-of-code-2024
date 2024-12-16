@@ -72,13 +72,13 @@ pub fn part_1(input: &[Robot], room_dimensions: (i64, i64)) -> i64 {
 
 pub fn part_2(input: &[Robot], room_dimensions: (i64, i64)) -> Result<(), std::io::Error> {
     let mut old_locations = input.to_vec();
-    let mut file = File::create("output.txt").unwrap();
+    // let mut file = File::create("output.txt").unwrap();
     // for initial in 1..=4024 {
     //     let new_locations = old_locations.iter().map(|r| r.step(1, room_dimensions)).collect::<Vec<_>>();
     //     old_locations = new_locations;
     // }
 
-    for i in 1..=10000 {
+    for i in 1..=10 {
         let new_locations = old_locations.iter().map(|r| r.step(1, room_dimensions)).collect::<Vec<_>>();
         // println!("{:?}", new_locations);
     
@@ -86,9 +86,11 @@ pub fn part_2(input: &[Robot], room_dimensions: (i64, i64)) -> Result<(), std::i
         for robot in &new_locations {
             *robots_by_location.entry(robot.position).or_insert(0i64) += 1;
         }
-        writeln!(file, "After {} seconds", i)?;
-        write!(file, "{}", Room { robots: robots_by_location, room_dimensions })?;
-        writeln!(file)?;
+        // writeln!(file, "After {} seconds", i)?;
+        // write!(file, "{}", Room { robots: robots_by_location, room_dimensions })?;
+        // writeln!(file)?;
+        println!("After {} seconds", i);
+        println!("{}", Room { robots: robots_by_location, room_dimensions });
         old_locations = new_locations;
     }
 
