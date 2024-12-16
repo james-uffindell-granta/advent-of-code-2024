@@ -1,8 +1,9 @@
-use std::collections::{BTreeMap, HashSet, HashMap};
-use std::ops::Add;
 use itertools::Itertools;
+use std::cmp::Reverse;
+use std::collections::{BinaryHeap, HashMap, HashSet};
+use std::ops::Add;
 
-#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Coord {
     x: i64,
     y: i64,
@@ -25,44 +26,7 @@ impl Add<(i64, i64)> for Coord {
     }
 }
 
-impl Coord {
-    pub fn neighbours(self) -> [Coord; 4] {
-        let Coord { x, y } = self;
-        [
-            (x + 1, y).into(),
-            (x - 1, y).into(),
-            (x, y + 1).into(),
-            (x, y - 1).into(),
-        ]
-    }
-
-    pub fn moves(self, direction: Direction) -> [(Coord, Direction); 3] {
-        match direction {
-            Direction::Up => {
-                [(self, Direction::Left),
-                (self, Direction::Right),
-                (self + (0, -1), Direction::Up)]
-            },
-            Direction::Left => {
-                [(self, Direction::Up),
-                (self, Direction::Down),
-                (self + (-1, 0), Direction::Left)]
-            },
-            Direction::Right => {
-                [(self, Direction::Up),
-                (self, Direction::Down),
-                (self + (1, 0), Direction::Right)]
-            },
-            Direction::Down => {
-                [(self, Direction::Left),
-                (self, Direction::Right),
-                (self + (0, 1), Direction::Down)]
-            },
-        }
-    }
-}
-
-#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Direction {
     Up,
     Left,
@@ -70,107 +34,202 @@ pub enum Direction {
     Down,
 }
 
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Position {
+    location: Coord,
+    direction: Direction,
+}
+
+impl Position {
+    pub fn neighbours(self) -> [Position; 3] {
+        match self.direction {
+            Direction::Up => [
+                Position {
+                    location: self.location,
+                    direction: Direction::Left,
+                },
+                Position {
+                    location: self.location,
+                    direction: Direction::Right,
+                },
+                Position {
+                    location: self.location + (0, -1),
+                    direction: Direction::Up,
+                },
+            ],
+            Direction::Left => [
+                Position {
+                    location: self.location,
+                    direction: Direction::Up,
+                },
+                Position {
+                    location: self.location,
+                    direction: Direction::Down,
+                },
+                Position {
+                    location: self.location + (-1, 0),
+                    direction: Direction::Left,
+                },
+            ],
+            Direction::Right => [
+                Position {
+                    location: self.location,
+                    direction: Direction::Up,
+                },
+                Position {
+                    location: self.location,
+                    direction: Direction::Down,
+                },
+                Position {
+                    location: self.location + (1, 0),
+                    direction: Direction::Right,
+                },
+            ],
+            Direction::Down => [
+                Position {
+                    location: self.location,
+                    direction: Direction::Left,
+                },
+                Position {
+                    location: self.location,
+                    direction: Direction::Right,
+                },
+                Position {
+                    location: self.location + (0, 1),
+                    direction: Direction::Down,
+                },
+            ],
+        }
+    }
+}
+
 pub struct Input {
     spaces: HashSet<Coord>,
     start: Coord,
-    end: Coord
+    end: Coord,
 }
 
 impl Input {
-    pub fn to_scores(&self) -> (HashMap<(Coord, Direction), u64>, HashMap<(Coord, Direction), HashSet<(Coord, Direction)>>) {
+    pub fn valid_ends(&self) -> [Position; 4] {
+        [
+            Position {
+                location: self.end,
+                direction: Direction::Up,
+            },
+            Position {
+                location: self.end,
+                direction: Direction::Left,
+            },
+            Position {
+                location: self.end,
+                direction: Direction::Right,
+            },
+            Position {
+                location: self.end,
+                direction: Direction::Down,
+            },
+        ]
+    }
+}
+
+pub struct ProcessedInput {
+    scores: HashMap<Position, u64>,
+    best_predecessors: HashMap<Position, HashSet<Position>>,
+}
+
+impl Input {
+    pub fn to_scores(&self) -> ProcessedInput {
         let mut scores = HashMap::new();
         let mut best_predecessors = HashMap::new();
-        let mut unvisited = self.spaces.iter()
-        .cartesian_product(&[Direction::Up, Direction::Left, Direction::Right, Direction::Down])
-        .map(|(&c, &d)| (c, d)).collect::<HashSet<(Coord, Direction)>>();
+        let mut unvisited = self
+            .spaces
+            .iter()
+            .cartesian_product(&[
+                Direction::Up,
+                Direction::Left,
+                Direction::Right,
+                Direction::Down,
+            ])
+            .map(|(&location, &direction)| Position {
+                location,
+                direction,
+            })
+            .collect::<HashSet<_>>();
 
-        // map from lowest known risk so far to coords that satisfy
-        let mut next_to_examine: BTreeMap<u64, HashSet<(Coord, Direction)>> = BTreeMap::new();
+        let mut frontier = BinaryHeap::new();
 
         // map from coordinate to lowest known risk so far
-        let mut lowest_scores = HashMap::<(Coord, Direction), _>::new();
-        let start = (self.start, Direction::Right);
+        let mut lowest_scores = HashMap::new();
+        let start = Position {
+            location: self.start,
+            direction: Direction::Right,
+        };
 
         // distance to the start is 0
         lowest_scores.insert(start, 0);
 
-        let mut next_node_to_consider = Some((start, 0u64));
+        frontier.push(Reverse((0, start)));
 
-        while let Some((cell, score)) = next_node_to_consider {
+        while let Some((score, cell)) = frontier.pop().map(|Reverse(n)| n) {
+            if scores.contains_key(&cell) {
+                // already did this one
+                continue;
+            }
 
-            let unvisited_neighbours = cell.0.moves(cell.1).into_iter()
-                .filter(|n| self.spaces.contains(&n.0) && unvisited.contains(n))
+            let unvisited_neighbours = cell
+                .neighbours()
+                .into_iter()
+                .filter(|n| self.spaces.contains(&n.location) && unvisited.contains(n))
                 .collect::<Vec<_>>();
 
-            // let unvisited_neighbours = neighbours.intersection(&unvisited);
             for neighbour in unvisited_neighbours {
-
-                let score_for_move_this_way = score + if neighbour.0 == cell.0 { 1000 } else { 1 };
+                let score_for_move_this_way = score
+                    + if neighbour.location == cell.location {
+                        1000
+                    } else {
+                        1
+                    };
 
                 match lowest_scores.get(&neighbour) {
-                    Some(existing_score) => {
-                        if existing_score > &score_for_move_this_way {
-                            let minimum_score = existing_score.min(&score_for_move_this_way);
-                            // next_to_examine.entry(*existing_score).and_modify(|set| _ = set.remove(&neighbour));
-                            match next_to_examine.entry(*existing_score) {
-                                std::collections::btree_map::Entry::Occupied(mut o) => {
-                                    o.get_mut().remove(&neighbour);
-                                    if o.get().is_empty() {
-                                        o.remove();
-                                    }
-                                },
-                                std::collections::btree_map::Entry::Vacant(_) => {
-                                    // nothing - might be first time through
-                                }
-                            }
-                            next_to_examine.entry(*minimum_score).or_default().insert(neighbour);
-                            lowest_scores.insert(neighbour, *minimum_score);
+                    Some(existing_score) if existing_score > &score_for_move_this_way => {
+                        let minimum_score = existing_score.min(&score_for_move_this_way);
 
-                            // the best way we've found to get here so far is not as good as this
-                            best_predecessors.insert(neighbour, HashSet::from([cell]));
-                        } else if existing_score == &score_for_move_this_way {
-                            // we've found another equally good way - remember this too
-                            best_predecessors.entry(neighbour).or_insert(HashSet::new()).insert(cell);
-                        }
-                        // otherwise the existing minimum distance is still the min
-                        // no need to adjust anything
-                    },
+                        frontier.push(Reverse((*minimum_score, neighbour)));
+                        lowest_scores.insert(neighbour, *minimum_score);
+
+                        // the best way we've found to get here so far is not as good as this
+                        best_predecessors.insert(neighbour, HashSet::from([cell]));
+                    }
+                    Some(existing_score) if existing_score == &score_for_move_this_way => {
+                        // we've found another equally good way - remember this too
+                        best_predecessors
+                            .entry(neighbour)
+                            .or_insert(HashSet::new())
+                            .insert(cell);
+                    }
+                    Some(_) => {
+                        // current path and score are better than this - nothing to do
+                    }
                     None => {
-                        best_predecessors.entry(neighbour).or_insert(HashSet::new()).insert(cell);
+                        best_predecessors
+                            .entry(neighbour)
+                            .or_insert(HashSet::new())
+                            .insert(cell);
                         lowest_scores.insert(neighbour, score_for_move_this_way);
-                        next_to_examine.entry(score_for_move_this_way).or_default().insert(neighbour);
+                        frontier.push(Reverse((score_for_move_this_way, neighbour)));
                     }
                 }
             }
 
             unvisited.remove(&cell);
-            match next_to_examine.entry(score) {
-                std::collections::btree_map::Entry::Occupied(mut o) => {
-                    o.get_mut().remove(&cell);
-                    if o.get().is_empty() {
-                        o.remove();
-                    }
-                },
-                std::collections::btree_map::Entry::Vacant(_) => {
-                    // nothing - might be first time through
-                }
-            }
             scores.insert(cell, score);
-
-            // println!("Visited {:?}, assigned score {:?}, moving on to next cell", cell, score);
-
-
-            next_node_to_consider = next_to_examine.first_entry().map(|e| {
-                (*e.get().iter().next().unwrap(), *e.key())
-            });
-
-            // next_node_to_consider = next_to_examine.iter().filter_map(|(k, v)| (!v.is_empty()).then_some((*v.iter().next().unwrap(), *k))).next();
-
         }
 
-        (scores, best_predecessors)
+        ProcessedInput {
+            scores,
+            best_predecessors,
+        }
     }
-   
 }
 
 pub fn parse_input(input: &str) -> Input {
@@ -181,49 +240,46 @@ pub fn parse_input(input: &str) -> Input {
         for (x, c) in line.chars().enumerate() {
             let coord = (x as i64, y as i64).into();
             match c {
-                '.' => { spaces.insert(coord); }
+                '.' => {
+                    spaces.insert(coord);
+                }
                 'S' => {
                     spaces.insert(coord);
                     start = coord;
-                },
+                }
                 'E' => {
                     spaces.insert(coord);
                     end = coord;
-                },
-                _ => { },
+                }
+                _ => {}
             }
         }
     }
-    
+
     Input { spaces, start, end }
 }
 
 pub fn part_1(input: &Input) -> u64 {
-    let (scores, _) = input.to_scores();
-
-    [
-        *scores.get(&(input.end, Direction::Up)).unwrap(),
-        *scores.get(&(input.end, Direction::Left)).unwrap(),
-        *scores.get(&(input.end, Direction::Right)).unwrap(),
-        *scores.get(&(input.end, Direction::Down)).unwrap(),
-    ].into_iter().min().unwrap()
+    let ProcessedInput { scores, .. } = input.to_scores();
+    input
+        .valid_ends()
+        .into_iter()
+        .map(|e| *scores.get(&e).unwrap())
+        .min()
+        .unwrap()
 }
 
-
 pub fn part_2(input: &Input) -> usize {
-    let (scores, predecessors) = input.to_scores();
+    let ProcessedInput {
+        scores,
+        best_predecessors,
+    } = input.to_scores();
     let min_score = part_1(input);
-    let ends = [
-        (input.end, Direction::Up),
-        (input.end, Direction::Left),
-        (input.end, Direction::Right),
-        (input.end, Direction::Down)];
-    
 
     let mut steps_on_best_paths = HashSet::new();
 
     let mut cells_to_check = HashSet::new();
-    for end in ends {
+    for end in input.valid_ends() {
         if scores.get(&end).unwrap() == &min_score {
             cells_to_check.insert(end);
         }
@@ -232,16 +288,16 @@ pub fn part_2(input: &Input) -> usize {
     while let Some(&cell) = cells_to_check.iter().next() {
         steps_on_best_paths.insert(cell);
 
-        match predecessors.get(&cell) {
+        match best_predecessors.get(&cell) {
             Some(best_predecessors) => {
                 for p in best_predecessors {
                     if !steps_on_best_paths.contains(p) {
                         cells_to_check.insert(*p);
                     }
                 }
-            },
+            }
             None => {
-                if cell.0 != input.start {
+                if cell.location != input.start {
                     unreachable!();
                 }
             }
@@ -250,24 +306,18 @@ pub fn part_2(input: &Input) -> usize {
         cells_to_check.remove(&cell);
     }
 
-    let cells_on_best_paths = steps_on_best_paths.iter().map(|c| c.0).collect::<HashSet<_>>();
-
-    cells_on_best_paths.len()
+    steps_on_best_paths
+        .iter()
+        .map(|c| c.location)
+        .collect::<HashSet<_>>()
+        .len()
 }
-
 
 fn main() {
     let file = include_str!("../input.txt");
     let input = parse_input(file);
-    use std::time::Instant;
-    let now = Instant::now();
     println!("Part 1: {}", part_1(&input));
-    println!("{:?}", now.elapsed());
-    let now = Instant::now();
     println!("Part 2: {}", part_2(&input));
-    println!("{:?}", now.elapsed());
-    // println!("Part 1: {}", part_1(&input));
-    // println!("Part 2: {}", part_2(&input));
 }
 
 #[test]
