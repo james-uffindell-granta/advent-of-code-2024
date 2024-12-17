@@ -115,13 +115,11 @@ pub fn parse_input(input: &str) -> Computer {
 
 pub fn part_1(input: &Computer) -> String {
     let output = input.run();
-    let mut text_output = String::new();
-    for n in output {
-        text_output.push_str(&n.to_string());
-        text_output.push(',');
-    }
-
-    text_output[..(text_output.len() - 1)].to_string()
+    output
+        .iter()
+        .map(|n| n.to_string())
+        .collect::<Vec<_>>()
+        .join(",")
 }
 
 pub fn part_2(input: &Computer) -> u64 {
@@ -152,11 +150,15 @@ pub fn part_2(input: &Computer) -> u64 {
     let mut result_map = HashMap::new();
     for possible_a in 0..=1023u64 {
         let computer = Computer {
-                    registers: Registers { a: possible_a, b: 0, c: 0 },
-                    output: Vec::new(),
-                    instruction_pointer: 0,
-                    program: input.program.clone(),
-                };
+            registers: Registers {
+                a: possible_a,
+                b: 0,
+                c: 0,
+            },
+            output: Vec::new(),
+            instruction_pointer: 0,
+            program: input.program.clone(),
+        };
         let output = computer.run();
         result_map
             .entry(output[0])
@@ -204,21 +206,13 @@ pub fn part_2(input: &Computer) -> u64 {
         }
     }
 
-    // for i in possible_answers.iter() {
-    //     let c = Computer {
-    //         registers: Registers { a: *i, b: 0, c: 0 },
-    //         output: Vec::new(),
-    //         instruction_pointer: 0,
-    //         program: input.program.clone(),
-    //     };
-    //     let output = c.run();
-    //     println!("{} gives output {:?}", i, output);
-    // }
-
     // and we have to have stopped after this point precisely:
     // if there are any digits left after this they would lead to extra output,
     // and if the first three digits of a are zeroes then they wouldn't print the final output value
-    possible_answers.retain(|answer| answer >> (3 * things_to_print.len()) == 0 && answer >> (3 * (things_to_print.len() - 1)) != 0);
+    possible_answers.retain(|answer| {
+        answer >> (3 * things_to_print.len()) == 0
+            && answer >> (3 * (things_to_print.len() - 1)) != 0
+    });
 
     possible_answers.into_iter().min().unwrap()
 }
