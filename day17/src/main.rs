@@ -159,14 +159,15 @@ pub fn part_2(input: &Computer) -> u64 {
     // them into the real a
     let mut result_map = HashMap::new();
     for possible_a in 0..=1023u64 {
-        // this is a translation of what my program does, at least
-        // could get these answers by just running the Computer instead
-        let b = possible_a & 0b111;
-        let c = possible_a >> (b ^ 3);
-        let b = b ^ c;
-        let result = b & 0b111;
+        let computer = Computer {
+                    registers: Registers { a: possible_a, b: 0, c: 0 },
+                    output: Vec::new(),
+                    instruction_pointer: 0,
+                    program: input.program.clone(),
+                };
+        let output = computer.run();
         result_map
-            .entry(result)
+            .entry(output[0])
             .or_insert(BTreeSet::new())
             .insert(possible_a);
     }
@@ -211,16 +212,16 @@ pub fn part_2(input: &Computer) -> u64 {
         }
     }
 
-    for i in possible_answers.iter() {
-        let c = Computer {
-            registers: Registers { a: *i, b: 0, c: 0 },
-            output: Vec::new(),
-            instruction_pointer: 0,
-            program: input.program.clone(),
-        };
-        let output = c.run();
-        println!("{} gives output {:?}", i, output);
-    }
+    // for i in possible_answers.iter() {
+    //     let c = Computer {
+    //         registers: Registers { a: *i, b: 0, c: 0 },
+    //         output: Vec::new(),
+    //         instruction_pointer: 0,
+    //         program: input.program.clone(),
+    //     };
+    //     let output = c.run();
+    //     println!("{} gives output {:?}", i, output);
+    // }
 
     // and we have to have stopped after this point precisely:
     // if there are any digits left after this they would lead to extra output,
