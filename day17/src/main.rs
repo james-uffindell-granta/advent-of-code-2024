@@ -32,7 +32,7 @@ impl Computer {
         let literal_operand = self.program.numbers[self.instruction_pointer + 1] as u64;
 
         let combo_operand = match literal_operand {
-            0 | 1 | 2 | 3 => literal_operand,
+            0..=3 => literal_operand,
             4 => self.registers.a,
             5 => self.registers.b,
             6 => self.registers.c,
@@ -71,7 +71,6 @@ impl Computer {
             _ => unreachable!(),
         }
 
-        // note: except for jumps
         if !jumped {
             new_state.instruction_pointer += 2;
         }
@@ -81,14 +80,7 @@ impl Computer {
 
     pub fn run(&self) -> Vec<u64> {
         let mut state = self.clone();
-        // let mut count = 0;
-        // println!("Starting with {:?}", state.registers);
         while let Some(new_state) = state.step() {
-            // count += 1;
-            // if count > 100 {
-            //     break;
-            // }
-            // println!("Stepped to {:?}", new_state.registers);
             state = new_state;
         }
         state.output.clone()
