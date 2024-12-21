@@ -1,4 +1,4 @@
-use std::collections::{btree_map::Keys, HashMap};
+use std::collections::HashMap;
 
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum KeypadButton {
@@ -119,13 +119,13 @@ pub fn shortest_sequence_to_press(start: DirectionalButton, target: DirectionalB
             DirectionalButton::Up => vec![DirectionalButton::Left, DirectionalButton::Activate],
             DirectionalButton::Left => vec![DirectionalButton::Down, DirectionalButton::Left, DirectionalButton::Left, DirectionalButton::Activate],
             DirectionalButton::Right => vec![DirectionalButton::Down, DirectionalButton::Activate],
-            DirectionalButton::Down => vec![DirectionalButton::Down, DirectionalButton::Left, DirectionalButton::Activate],
+            DirectionalButton::Down => vec![DirectionalButton::Left, DirectionalButton::Down, DirectionalButton::Activate],
             DirectionalButton::Activate => vec![DirectionalButton::Activate],
         }
     }
 }
 
-pub fn shortest_sequence_between(start: KeypadButton, target: KeypadButton) -> Vec<DirectionalButton> {
+pub fn shortest_sequence_length_between(start: KeypadButton, target: KeypadButton, intervening_robots: usize, cache: &mut HashMap<(DirectionalButton, DirectionalButton, usize), usize>) -> usize {
     // we start at start, we go to target
     let horizontal_moves = horizontal_between(start, target);
     let vertical_moves = vertical_between(start, target);
@@ -152,18 +152,6 @@ pub fn shortest_sequence_between(start: KeypadButton, target: KeypadButton) -> V
         }
     }
 
-    // if start != KeypadButton::Zero && start != KeypadButton::Activate {
-    //     if let Some((Direction::Left, times)) = horizontal_moves {
-    //         first_robot_presses.extend(std::iter::repeat(DirectionalButton::Left).take(times));
-    //     }    
-    // }
-
-    // if start != KeypadButton::One && start != KeypadButton::Four && start != KeypadButton::Seven {
-    //     if let Some((Direction::Down, times)) = vertical_moves {
-    //         first_robot_presses.extend(std::iter::repeat(DirectionalButton::Down).take(times));
-    //     }  
-    // }
-
     if let Some((Direction::Up, times)) = vertical_moves {
         first_robot_presses.extend(std::iter::repeat(DirectionalButton::Up).take(times));
     } 
@@ -185,28 +173,37 @@ pub fn shortest_sequence_between(start: KeypadButton, target: KeypadButton) -> V
     }
 
     first_robot_presses.push(DirectionalButton::Activate);
-    println!("shortest sequence to press {:?} from {:?} for first robot is {:?} with length {}", target, start, first_robot_presses, first_robot_presses.len());
     first_robot_presses.insert(0, DirectionalButton::Activate);
 
-    let mut second_robot_presses = Vec::new();
-
+    let mut answer = 0;
     for pair in first_robot_presses.windows(2) {
-        second_robot_presses.extend(shortest_sequence_to_press(pair[0], pair[1]));
+        answer += all_robot_presses(pair[0], pair[1], intervening_robots, cache);
     }
 
-    // println!("shortest sequence to press {:?} from {:?} for second robot is {:?} with length {}", target, start, second_robot_presses, second_robot_presses.len());
-    second_robot_presses.insert(0, DirectionalButton::Activate);
-
-    let mut third_robot_presses = Vec::new();
-
-    for pair in second_robot_presses.windows(2) {
-        third_robot_presses.extend(shortest_sequence_to_press(pair[0], pair[1]));
-    }
-
-    // println!("shortest sequence to press {:?} from {:?} is {:?} with length {}", target, start, third_robot_presses, third_robot_presses.len());
-    third_robot_presses
+    answer
 }
 
+// shortest sequence for the next n robots to tell me to press this button from there
+pub fn all_robot_presses(start: DirectionalButton, target: DirectionalButton, remaining_robots: usize, cache: &mut HashMap<(DirectionalButton, DirectionalButton, usize), usize>) -> usize {
+    if let Some(answer) = cache.get(&(start, target, remaining_robots)) {
+        return *answer;
+    }
+
+    if remaining_robots == 0 {
+        // we are the final robot
+        return shortest_sequence_to_press(start, target).len();
+    }
+
+    let mut next_robot_presses = shortest_sequence_to_press(start, target);
+    next_robot_presses.insert(0, DirectionalButton::Activate);
+    let mut answer = 0;
+    for pair in next_robot_presses.windows(2) {
+        answer += all_robot_presses(pair[0], pair[1], remaining_robots - 1, cache);
+    }
+
+    cache.insert((start, target, remaining_robots), answer);
+    answer
+}
 
 #[derive(Clone, Debug)]
 pub struct Sequence {
@@ -215,19 +212,20 @@ pub struct Sequence {
 }
 
 impl Sequence {
-    pub fn shortest_presses(&self) -> Vec<DirectionalButton> {
+    pub fn shortest_presses(&self, intervening_robots: usize) -> usize {
         let mut numbers = self.numbers.clone();
+        let mut cache = HashMap::new();
         numbers.insert(0, KeypadButton::Activate);
-        let mut presses = Vec::new();
+        let mut presses = 0;
         for pair in numbers.windows(2) {
-            presses.extend(shortest_sequence_between(pair[0], pair[1]));
+            presses += (shortest_sequence_length_between(pair[0], pair[1], intervening_robots, &mut cache));
         }
 
         presses
     }
 
-    pub fn complexity(&self) -> usize {
-        let length = self.shortest_presses().len();
+    pub fn complexity(&self, intervening_robots: usize) -> usize {
+        let length = self.shortest_presses(intervening_robots);
         println!("{:?} has length {}", self, length);
         length * self.numeric_part
     }
@@ -261,7 +259,11 @@ pub fn parse_input(input: &str) -> Input {
 }
 
 pub fn part_1(input: &Input) -> usize {
-    input.codes.iter().map(|s| s.complexity()).sum()
+    input.codes.iter().map(|s| s.complexity(1)).sum()
+}
+
+pub fn part_2(input: &Input) -> usize {
+    input.codes.iter().map(|s| s.complexity(24)).sum()
 }
 
 fn main() {
@@ -273,71 +275,9 @@ fn main() {
     // had lengths 78, 76, 68, 74, 74, 
     println!("{:?}", now.elapsed());
     let now = Instant::now();
-    // println!("Part 2: {}", part_2(&input));
+    println!("Part 2: {}", part_2(&input)); // 294235936545928 too high
     println!("{:?}", now.elapsed());
 }
-
-#[test]
-pub fn test_simple() {
-    // shortest_sequence_between(KeypadButton::Activate, KeypadButton::Zero);
-
-    // <v<A >>^A <vA <A >>^A A vA A <^A >A     <v<A >>^A A vA ^A <vA >^A A <A >A <v<A >A >^A A A vA <^A >A
-    // < A   v < A   A   > > ^ A   < A   A   > A   v A   A   ^ A    < v A    A   A   > ^ A
-    // ^   <   <  A    ^    ^   A >  >  A   v  v  v   A
-    // 1   7   9   A
-
-    let input = "179A
-";
-    let input = parse_input(input);
-
-    for c in input.codes {
-        let presses = c.shortest_presses();
-        println!("Sequence {:?} has shortest instruction {:?} with length {:?}", c, presses, presses.len());
-    }
-}
-
-#[test]
-pub fn test_simple_2() {
-    // shortest_sequence_between(KeypadButton::Activate, KeypadButton::Zero);
-
-    // <v<A >>^A <vA <A >>^A A vA A <^A >A     <v<A >>^A A vA ^A <vA >^A A <A >A <v<A >A >^A A A vA <^A >A
-    // < A   v < A   A   > > ^ A   < A   A   > A   v A   A   ^ A    < v A    A   A   > ^ A
-    // ^   <   <  A    ^    ^   A >  >  A   v  v  v   A
-    // 1   7   9   A
-
-    let input = "456A
-";
-    let input = parse_input(input);
-
-    for c in input.codes {
-        let presses = c.shortest_presses();
-        println!("Sequence {:?} has shortest instruction {:?} with length {:?}", c, presses, presses.len());
-    }
-}
-
-#[test]
-pub fn test_simple_3() {
-    //  <v<A>>^A   vA^A.   <vA<AA>>^A   A vA  <^A  >A A   vA  ^A.  <vA>^AA<A>A<v<A>A>^AAAvA<^A>A
-    // <A>A  .  v<<A  A  >  ^ A  A  > A
-    // ^A   < <  ^ ^  A
-
-
-    //  [Left, Activate, Activate, Down, Left, Activate, Activate, Right, Right, Up, Activate]
-
-    // [Down, Left, Left, Activate, Right, Right, Up, Activate, Activate, Down, Left, Activate,
-    // Left, Activate, Right, Right, Up, Activate, Activate, Down, Activate, Activate, Left, 
-    // Up, Activate, Right, Activate]
-
-    let input = "379A
-";
-    let input = parse_input(input);
-
-    for c in input.codes {
-        let presses = c.shortest_presses();
-        println!("Sequence {:?} has shortest instruction {:?} with length {:?}", c, presses, presses.len());
-    }
-}
-
 
 #[test]
 pub fn test() {
@@ -348,14 +288,5 @@ pub fn test() {
 379A
 ";
     let input = parse_input(input);
-
-
-
-    for c in &input.codes {
-        let presses = c.shortest_presses();
-        println!("Sequence {:?} has shortest instruction {:?} with length {:?}", c, presses, presses.len());
-    }
-    // let cheats = input.find_cheats();
-
     assert_eq!(part_1(&input), 126384);
 }
