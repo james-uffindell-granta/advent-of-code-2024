@@ -1,9 +1,8 @@
-
 use std::collections::HashMap;
 use std::fmt::Formatter;
 use std::fs::File;
 use std::io::Write;
-use winnow::ascii::{digit1, dec_int};
+use winnow::ascii::{dec_int, digit1};
 use winnow::combinator::{alt, delimited, preceded, repeat, separated, separated_pair};
 use winnow::token::take;
 use winnow::{PResult, Parser};
@@ -18,38 +17,48 @@ impl Robot {
     pub fn step(self, steps: i64, room_dimensions: (i64, i64)) -> Self {
         let x_steps = steps % room_dimensions.0;
         let y_steps = steps % room_dimensions.1;
-        let new_position = ((self.position.0 + self.velocity.0 * x_steps) % room_dimensions.0, (self.position.1 + self.velocity.1 * y_steps) % room_dimensions.1);
+        let new_position = (
+            (self.position.0 + self.velocity.0 * x_steps) % room_dimensions.0,
+            (self.position.1 + self.velocity.1 * y_steps) % room_dimensions.1,
+        );
 
         Self {
             // readjust so always positive
-            position: ((new_position.0 + room_dimensions.0) % room_dimensions.0, (new_position.1 + room_dimensions.1) % room_dimensions.1),
+            position: (
+                (new_position.0 + room_dimensions.0) % room_dimensions.0,
+                (new_position.1 + room_dimensions.1) % room_dimensions.1,
+            ),
             velocity: self.velocity,
         }
     }
 }
 
 pub fn parse_robot(input: &mut &str) -> PResult<Robot> {
-    let ((px, py),(vx, vy)) = separated_pair(
+    let ((px, py), (vx, vy)) = separated_pair(
         preceded("p=", separated_pair(dec_int, ",", dec_int)),
         " ",
-        preceded("v=", separated_pair(dec_int, ",", dec_int))
-    ).parse_next(input)?;
-    Ok(Robot { position: (px, py), velocity: (vx, vy) })
+        preceded("v=", separated_pair(dec_int, ",", dec_int)),
+    )
+    .parse_next(input)?;
+    Ok(Robot {
+        position: (px, py),
+        velocity: (vx, vy),
+    })
 }
 
 pub fn parse_items(input: &mut &str) -> PResult<Vec<Robot>> {
-    separated(1.., parse_robot, "\n")
-    .parse_next(input)
+    separated(1.., parse_robot, "\n").parse_next(input)
 }
 
 pub fn parse_input(input: &str) -> Vec<Robot> {
-    parse_items
-        .parse(input.trim())
-        .unwrap()
+    parse_items.parse(input.trim()).unwrap()
 }
 
 pub fn part_1(input: &[Robot], room_dimensions: (i64, i64)) -> i64 {
-    let new_locations = input.iter().map(|r| r.step(100, room_dimensions)).collect::<Vec<_>>();
+    let new_locations = input
+        .iter()
+        .map(|r| r.step(100, room_dimensions))
+        .collect::<Vec<_>>();
     // println!("{:?}", new_locations);
 
     let mut robots_by_location = HashMap::new();
@@ -63,10 +72,22 @@ pub fn part_1(input: &[Robot], room_dimensions: (i64, i64)) -> i64 {
 
     // println!("{:?}", forbidden_coords);
 
-    let upper_left: i64 = robots_by_location.iter().filter_map(|(k, v)| (k.0 < forbidden_coords.0 && k.1 < forbidden_coords.1).then_some(*v)).sum();
-    let upper_right: i64 = robots_by_location.iter().filter_map(|(k, v)| (k.0 > forbidden_coords.0 && k.1 < forbidden_coords.1).then_some(*v)).sum();
-    let lower_left: i64 = robots_by_location.iter().filter_map(|(k, v)| (k.0 < forbidden_coords.0 && k.1 > forbidden_coords.1).then_some(*v)).sum();
-    let lower_right: i64 = robots_by_location.iter().filter_map(|(k, v)| (k.0 > forbidden_coords.0 && k.1 > forbidden_coords.1).then_some(*v)).sum();
+    let upper_left: i64 = robots_by_location
+        .iter()
+        .filter_map(|(k, v)| (k.0 < forbidden_coords.0 && k.1 < forbidden_coords.1).then_some(*v))
+        .sum();
+    let upper_right: i64 = robots_by_location
+        .iter()
+        .filter_map(|(k, v)| (k.0 > forbidden_coords.0 && k.1 < forbidden_coords.1).then_some(*v))
+        .sum();
+    let lower_left: i64 = robots_by_location
+        .iter()
+        .filter_map(|(k, v)| (k.0 < forbidden_coords.0 && k.1 > forbidden_coords.1).then_some(*v))
+        .sum();
+    let lower_right: i64 = robots_by_location
+        .iter()
+        .filter_map(|(k, v)| (k.0 > forbidden_coords.0 && k.1 > forbidden_coords.1).then_some(*v))
+        .sum();
     upper_left * upper_right * lower_left * lower_right
 }
 
@@ -80,25 +101,52 @@ pub fn part_2(input: &[Robot], room_dimensions: (i64, i64)) -> Result<(), std::i
     let forbidden_coords = (room_dimensions.0 / 2, room_dimensions.1 / 2);
 
     for i in 1..=(room_dimensions.0 * room_dimensions.1) {
-        let new_locations = old_locations.iter().map(|r| r.step(1, room_dimensions)).collect::<Vec<_>>();
+        let new_locations = old_locations
+            .iter()
+            .map(|r| r.step(1, room_dimensions))
+            .collect::<Vec<_>>();
         // println!("{:?}", new_locations);
-    
+
         let mut robots_by_location = HashMap::new();
         for robot in &new_locations {
             robots_by_location.insert(robot.position, 1);
         }
         let locations = robots_by_location.len();
-        let upper_left: i64 = robots_by_location.iter().filter_map(|(k, v)| (k.0 < forbidden_coords.0 && k.1 < forbidden_coords.1).then_some(*v)).sum();
-        let upper_right: i64 = robots_by_location.iter().filter_map(|(k, v)| (k.0 > forbidden_coords.0 && k.1 < forbidden_coords.1).then_some(*v)).sum();
-        let lower_left: i64 = robots_by_location.iter().filter_map(|(k, v)| (k.0 < forbidden_coords.0 && k.1 > forbidden_coords.1).then_some(*v)).sum();
-        let lower_right: i64 = robots_by_location.iter().filter_map(|(k, v)| (k.0 > forbidden_coords.0 && k.1 > forbidden_coords.1).then_some(*v)).sum();
+        let upper_left: i64 = robots_by_location
+            .iter()
+            .filter_map(|(k, v)| {
+                (k.0 < forbidden_coords.0 && k.1 < forbidden_coords.1).then_some(*v)
+            })
+            .sum();
+        let upper_right: i64 = robots_by_location
+            .iter()
+            .filter_map(|(k, v)| {
+                (k.0 > forbidden_coords.0 && k.1 < forbidden_coords.1).then_some(*v)
+            })
+            .sum();
+        let lower_left: i64 = robots_by_location
+            .iter()
+            .filter_map(|(k, v)| {
+                (k.0 < forbidden_coords.0 && k.1 > forbidden_coords.1).then_some(*v)
+            })
+            .sum();
+        let lower_right: i64 = robots_by_location
+            .iter()
+            .filter_map(|(k, v)| {
+                (k.0 > forbidden_coords.0 && k.1 > forbidden_coords.1).then_some(*v)
+            })
+            .sum();
 
-        if (upper_right as f64 / locations as f64) < 0.25 && (upper_left as f64 / locations as f64) < 0.25
- {
-    writeln!(file, "After {} seconds", i)?;
-    write!(file, "{}", Room { robots: robots_by_location, room_dimensions })?;
-    writeln!(file)?;
- }
+        if (upper_right as f64 / locations as f64) < 0.25
+            && (upper_left as f64 / locations as f64) < 0.25
+        {
+            writeln!(file, "After {} seconds", i)?;
+            write!(file, "{}", Room {
+                robots: robots_by_location,
+                room_dimensions
+            })?;
+            writeln!(file)?;
+        }
 
         old_locations = new_locations;
     }
