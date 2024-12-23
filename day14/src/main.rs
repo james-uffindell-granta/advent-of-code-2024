@@ -77,18 +77,29 @@ pub fn part_2(input: &[Robot], room_dimensions: (i64, i64)) -> Result<(), std::i
     //     let new_locations = old_locations.iter().map(|r| r.step(1, room_dimensions)).collect::<Vec<_>>();
     //     old_locations = new_locations;
     // }
+    let forbidden_coords = (room_dimensions.0 / 2, room_dimensions.1 / 2);
 
-    for i in 1..=10000 {
+    for i in 1..=(room_dimensions.0 * room_dimensions.1) {
         let new_locations = old_locations.iter().map(|r| r.step(1, room_dimensions)).collect::<Vec<_>>();
         // println!("{:?}", new_locations);
     
         let mut robots_by_location = HashMap::new();
         for robot in &new_locations {
-            *robots_by_location.entry(robot.position).or_insert(0i64) += 1;
+            robots_by_location.insert(robot.position, 1);
         }
-        writeln!(file, "After {} seconds", i)?;
-        write!(file, "{}", Room { robots: robots_by_location, room_dimensions })?;
-        writeln!(file)?;
+        let locations = robots_by_location.len();
+        let upper_left: i64 = robots_by_location.iter().filter_map(|(k, v)| (k.0 < forbidden_coords.0 && k.1 < forbidden_coords.1).then_some(*v)).sum();
+        let upper_right: i64 = robots_by_location.iter().filter_map(|(k, v)| (k.0 > forbidden_coords.0 && k.1 < forbidden_coords.1).then_some(*v)).sum();
+        let lower_left: i64 = robots_by_location.iter().filter_map(|(k, v)| (k.0 < forbidden_coords.0 && k.1 > forbidden_coords.1).then_some(*v)).sum();
+        let lower_right: i64 = robots_by_location.iter().filter_map(|(k, v)| (k.0 > forbidden_coords.0 && k.1 > forbidden_coords.1).then_some(*v)).sum();
+
+        if (upper_right as f64 / locations as f64) < 0.25 && (upper_left as f64 / locations as f64) < 0.25
+ {
+    writeln!(file, "After {} seconds", i)?;
+    write!(file, "{}", Room { robots: robots_by_location, room_dimensions })?;
+    writeln!(file)?;
+ }
+
         old_locations = new_locations;
     }
 
@@ -102,8 +113,8 @@ pub struct Room {
 
 impl std::fmt::Display for Room {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
-        for x in 0..self.room_dimensions.0 {
-            for y in 0..self.room_dimensions.1 {
+        for y in 0..self.room_dimensions.0 {
+            for x in 0..self.room_dimensions.1 {
                 if let Some(count) = self.robots.get(&(x, y)) {
                     if count < &10 {
                         write!(f, "{}", count)?;
