@@ -1,10 +1,7 @@
 use std::collections::HashMap;
 use std::fmt::Formatter;
-use std::fs::File;
-use std::io::Write;
-use winnow::ascii::{dec_int, digit1};
-use winnow::combinator::{alt, delimited, preceded, repeat, separated, separated_pair};
-use winnow::token::take;
+use winnow::ascii::dec_int;
+use winnow::combinator::{preceded, separated, separated_pair};
 use winnow::{PResult, Parser};
 
 #[derive(Copy, Clone, Debug)]
@@ -59,18 +56,13 @@ pub fn part_1(input: &[Robot], room_dimensions: (i64, i64)) -> i64 {
         .iter()
         .map(|r| r.step(100, room_dimensions))
         .collect::<Vec<_>>();
-    // println!("{:?}", new_locations);
 
     let mut robots_by_location = HashMap::new();
     for robot in new_locations {
         *robots_by_location.entry(robot.position).or_insert(0i64) += 1;
     }
 
-    // println!("{:?}", robots_by_location);
-
     let forbidden_coords = (room_dimensions.0 / 2, room_dimensions.1 / 2);
-
-    // println!("{:?}", forbidden_coords);
 
     let upper_left: i64 = robots_by_location
         .iter()
@@ -91,67 +83,33 @@ pub fn part_1(input: &[Robot], room_dimensions: (i64, i64)) -> i64 {
     upper_left * upper_right * lower_left * lower_right
 }
 
-pub fn part_2(input: &[Robot], room_dimensions: (i64, i64)) -> Result<(), std::io::Error> {
+pub fn part_2(input: &[Robot], room_dimensions: (i64, i64)) -> i64 {
     let mut old_locations = input.to_vec();
-    let mut file = File::create("output.txt").unwrap();
-    // for initial in 1..=4024 {
-    //     let new_locations = old_locations.iter().map(|r| r.step(1, room_dimensions)).collect::<Vec<_>>();
-    //     old_locations = new_locations;
-    // }
-    let forbidden_coords = (room_dimensions.0 / 2, room_dimensions.1 / 2);
 
     for i in 1..=(room_dimensions.0 * room_dimensions.1) {
         let new_locations = old_locations
             .iter()
             .map(|r| r.step(1, room_dimensions))
             .collect::<Vec<_>>();
-        // println!("{:?}", new_locations);
 
         let mut robots_by_location = HashMap::new();
         for robot in &new_locations {
             robots_by_location.insert(robot.position, 1);
         }
-        let locations = robots_by_location.len();
-        let upper_left: i64 = robots_by_location
-            .iter()
-            .filter_map(|(k, v)| {
-                (k.0 < forbidden_coords.0 && k.1 < forbidden_coords.1).then_some(*v)
-            })
-            .sum();
-        let upper_right: i64 = robots_by_location
-            .iter()
-            .filter_map(|(k, v)| {
-                (k.0 > forbidden_coords.0 && k.1 < forbidden_coords.1).then_some(*v)
-            })
-            .sum();
-        let lower_left: i64 = robots_by_location
-            .iter()
-            .filter_map(|(k, v)| {
-                (k.0 < forbidden_coords.0 && k.1 > forbidden_coords.1).then_some(*v)
-            })
-            .sum();
-        let lower_right: i64 = robots_by_location
-            .iter()
-            .filter_map(|(k, v)| {
-                (k.0 > forbidden_coords.0 && k.1 > forbidden_coords.1).then_some(*v)
-            })
-            .sum();
 
-        if (upper_right as f64 / locations as f64) < 0.25
-            && (upper_left as f64 / locations as f64) < 0.25
-        {
-            writeln!(file, "After {} seconds", i)?;
-            write!(file, "{}", Room {
-                robots: robots_by_location,
-                room_dimensions
-            })?;
-            writeln!(file)?;
+        let image = format!("{}", Room {
+            robots: robots_by_location,
+            room_dimensions
+        });
+
+        if image.contains("##########") {
+            return i;
         }
 
         old_locations = new_locations;
     }
 
-    Ok(())
+    unreachable!();
 }
 
 pub struct Room {
@@ -163,17 +121,13 @@ impl std::fmt::Display for Room {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         for y in 0..self.room_dimensions.0 {
             for x in 0..self.room_dimensions.1 {
-                if let Some(count) = self.robots.get(&(x, y)) {
-                    if count < &10 {
-                        write!(f, "{}", count)?;
-                    } else {
-                        write!(f, "X")?;
-                    }
+                if let Some(_) = self.robots.get(&(x, y)) {
+                    write!(f, "#")?;
                 } else {
                     write!(f, ".")?;
                 }
             }
-            writeln!(f);
+            writeln!(f)?;
         }
 
         Ok(())
@@ -184,8 +138,7 @@ fn main() {
     let file = include_str!("../input.txt");
     let input = parse_input(file);
     println!("Part 1: {}", part_1(&input, (101, 103)));
-    part_2(&input, (101, 103));
-    // println!("Part 2: {}", part_2(&input));
+    println!("Part 2: {}", part_2(&input, (101, 103)));
 }
 
 #[test]
